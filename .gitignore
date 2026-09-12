@@ -141,3 +141,18 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+# IDE
+.idea/
+
+# Environment
+**/.env
+
+# Prisma generated client
+apps/api/src/generated/
+
+# AI tool generated skills
+apps/api/.agents/
+apps/api/.claude/
+apps/api/.cursor/
+apps/api/.devin/
