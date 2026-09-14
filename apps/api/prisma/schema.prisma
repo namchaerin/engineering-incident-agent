@@ -22,6 +22,7 @@ model DocumentChunk {
   documentId Int
   chunkIndex Int
   content    String
+  embedding  Unsupported("vector(1536)")?
   createdAt  DateTime @default(now())
 
   document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)

@@ -20,4 +20,9 @@ export class DocumentsController {
     return this.documentsService.createChunks();
   }
 
+  @Post('embeddings')
+  generateEmbeddings() {
+    return this.documentsService.generateEmbeddings();
+  }
+
 }

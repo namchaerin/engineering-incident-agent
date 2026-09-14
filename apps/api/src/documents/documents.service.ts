@@ -2,10 +2,14 @@ import { Injectable } from '@nestjs/common';
 import { readFile, readdir } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { EmbeddingsService } from '../embeddings/embeddings.service.js';
 
 @Injectable()
 export class DocumentsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly embeddingsService: EmbeddingsService,
+  ) {}
 
   async findAll() {
     return this.prisma.document.findMany({
@@ -98,6 +102,35 @@ export class DocumentsService {
       .split(/\n\s*\n/)
       .map((chunk) => chunk.trim())
       .filter((chunk) => chunk.length > 0);
+  }
+
+  async generateEmbeddings() {
+    const chunks = await this.prisma.documentChunk.findMany({
+      orderBy: {
+        id: 'asc',
+      },
+    });
+
+    const results = [];
+
+    for (const chunk of chunks) {
+      const embedding = await this.embeddingsService.embed(chunk.content);
+
+      const vector = `[${embedding.join(',')}]`;
+
+      await this.prisma.$executeRaw`
+      UPDATE "DocumentChunk"
+      SET "embedding" = ${vector}::vector
+      WHERE "id" = ${chunk.id}
+    `;
+
+      results.push({
+        chunkId: chunk.id,
+        embeddingLength: embedding.length,
+      });
+    }
+
+    return results;
   }
 
 }
