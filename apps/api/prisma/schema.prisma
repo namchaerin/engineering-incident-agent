@@ -12,6 +12,19 @@ model Document {
   title     String
   fileName  String   @unique
   content   String
+  chunks    DocumentChunk[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model DocumentChunk {
+  id         Int      @id @default(autoincrement())
+  documentId Int
+  chunkIndex Int
+  content    String
+  createdAt  DateTime @default(now())
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, chunkIndex])
 }

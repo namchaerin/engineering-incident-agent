@@ -14,4 +14,10 @@ export class DocumentsController {
   importDocuments() {
     return this.documentsService.importDocuments();
   }
+
+  @Post('chunks')
+  createChunks() {
+    return this.documentsService.createChunks();
+  }
+
 }

@@ -62,4 +62,42 @@ export class DocumentsService {
 
     return basename(fileName, '.md');
   }
+
+  async createChunks() {
+    const documents = await this.prisma.document.findMany();
+
+    const results = [];
+
+    for (const document of documents) {
+      const chunks = this.splitIntoChunks(document.content);
+
+      await this.prisma.documentChunk.deleteMany({
+        where: {
+          documentId: document.id,
+        },
+      });
+
+      for (let index = 0; index < chunks.length; index++) {
+        const chunk = await this.prisma.documentChunk.create({
+          data: {
+            documentId: document.id,
+            chunkIndex: index,
+            content: chunks[index],
+          },
+        });
+
+        results.push(chunk);
+      }
+    }
+
+    return results;
+  }
+
+  private splitIntoChunks(content: string) {
+    return content
+      .split(/\n\s*\n/)
+      .map((chunk) => chunk.trim())
+      .filter((chunk) => chunk.length > 0);
+  }
+
 }
