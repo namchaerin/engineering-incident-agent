@@ -133,4 +133,36 @@ export class DocumentsService {
     return results;
   }
 
+  async search(query: string, limit = 3) {
+    const queryEmbedding = await this.embeddingsService.embed(query);
+    const vector = `[${queryEmbedding.join(',')}]`;
+
+    return this.prisma.$queryRaw<
+      Array<{
+        id: number;
+        documentId: number;
+        chunkIndex: number;
+        content: string;
+        title: string;
+        fileName: string;
+        distance: number;
+      }>
+    >`
+    SELECT
+      dc."id",
+      dc."documentId",
+      dc."chunkIndex",
+      dc."content",
+      d."title",
+      d."fileName",
+      dc."embedding" <=> ${vector}::vector AS "distance"
+    FROM "DocumentChunk" dc
+    JOIN "Document" d
+      ON d."id" = dc."documentId"
+    WHERE dc."embedding" IS NOT NULL
+    ORDER BY dc."embedding" <=> ${vector}::vector
+    LIMIT ${limit}
+  `;
+  }
+
 }

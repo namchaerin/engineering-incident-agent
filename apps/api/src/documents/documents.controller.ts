@@ -1,4 +1,4 @@
-import { Controller, Get, Post } from '@nestjs/common';
+import { Controller, Get, Post, Query } from '@nestjs/common';
 import { DocumentsService } from './documents.service.js';
 
 @Controller('documents')
@@ -23,6 +23,11 @@ export class DocumentsController {
   @Post('embeddings')
   generateEmbeddings() {
     return this.documentsService.generateEmbeddings();
+  }
+
+  @Get('search')
+  search(@Query('q') query: string, @Query('limit') limit?: string) {
+    return this.documentsService.search(query, limit ? Number(limit) : 3);
   }
 
 }
