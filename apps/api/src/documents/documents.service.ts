@@ -97,11 +97,42 @@ export class DocumentsService {
     return results;
   }
 
-  private splitIntoChunks(content: string) {
-    return content
-      .split(/\n\s*\n/)
-      .map((chunk) => chunk.trim())
-      .filter((chunk) => chunk.length > 0);
+  private splitIntoChunks(content: string): string[] {
+    const lines = content.split('\n');
+
+    const chunks: string[] = [];
+    let currentChunk: string[] = [];
+
+    const flushChunk = () => {
+      const chunk = currentChunk.join('\n').trim();
+
+      if (chunk.length > 0) {
+        chunks.push(chunk);
+      }
+
+      currentChunk = [];
+    };
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+
+      // H1은 Document title 역할이므로 chunk에서 제외
+      if (/^# /.test(trimmed)) {
+        continue;
+      }
+
+      // H2부터 새로운 의미 단위 시작
+      if (/^## /.test(trimmed)) {
+        flushChunk();
+      }
+
+      currentChunk.push(line);
+    }
+
+    flushChunk();
+
+    return chunks;
+
   }
 
   async generateEmbeddings() {
@@ -164,5 +195,4 @@ export class DocumentsService {
     LIMIT ${limit}
   `;
   }
-
 }
