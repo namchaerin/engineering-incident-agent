@@ -1,6 +1,4 @@
-# Week 02 Development Log
-
-## Day 1
+## Day 02
 
 ### 오늘 한 작업
 
