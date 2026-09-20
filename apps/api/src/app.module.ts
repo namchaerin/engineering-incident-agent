@@ -5,6 +5,7 @@ import { AppService } from './app.service.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { DocumentsModule } from './documents/documents.module.js';
 import { EmbeddingsModule } from './embeddings/embeddings.module.js';
+import { RagModule } from './rag/rag.module.js';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { EmbeddingsModule } from './embeddings/embeddings.module.js';
     PrismaModule,
     DocumentsModule,
     EmbeddingsModule,
+    RagModule,
   ],
   controllers: [AppController],
   providers: [AppService],

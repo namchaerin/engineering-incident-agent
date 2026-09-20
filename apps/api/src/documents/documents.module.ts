@@ -7,5 +7,6 @@ import { EmbeddingsModule } from '../embeddings/embeddings.module.js';
   imports: [EmbeddingsModule],
   providers: [DocumentsService],
   controllers: [DocumentsController],
+  exports: [DocumentsService],
 })
 export class DocumentsModule {}
