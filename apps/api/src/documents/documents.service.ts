@@ -132,7 +132,33 @@ export class DocumentsService {
     flushChunk();
 
     return chunks;
+  }
 
+  async getIncident(incidentId: string) {
+    const document = await this.prisma.document.findFirst({
+      where: {
+        fileName: {
+          contains: 'incident',
+          mode: 'insensitive',
+        },
+        OR: [
+          {
+            title: {
+              contains: incidentId,
+              mode: 'insensitive',
+            },
+          },
+          {
+            content: {
+              contains: incidentId,
+              mode: 'insensitive',
+            },
+          },
+        ],
+      },
+    });
+
+    return document;
   }
 
   async generateEmbeddings() {

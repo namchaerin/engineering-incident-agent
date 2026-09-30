@@ -6,6 +6,7 @@ import { PrismaModule } from './prisma/prisma.module.js';
 import { DocumentsModule } from './documents/documents.module.js';
 import { EmbeddingsModule } from './embeddings/embeddings.module.js';
 import { RagModule } from './rag/rag.module.js';
+import { AgentModule } from './agent/agent.module.js';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { RagModule } from './rag/rag.module.js';
     DocumentsModule,
     EmbeddingsModule,
     RagModule,
+    AgentModule,
   ],
   controllers: [AppController],
   providers: [AppService],
