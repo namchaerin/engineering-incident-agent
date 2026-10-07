@@ -56,110 +56,126 @@ export class AgentService {
       },
     ];
 
-    const firstResponse = await this.openai.responses.create({
+    let response = await this.openai.responses.create({
       model: 'gpt-5-mini',
-      instructions: `
-      You are an engineering incident assistant.
-      
-      Available tools:
-      
-      - search_documents:
-        Use for semantic questions about engineering knowledge,
-        troubleshooting, architecture, previous incidents, and runbooks.
-      
-      - get_incident:
-        Use when the user asks for a specific incident by incident ID.
-      
-      Choose the most appropriate tool for the request.
-      
-      Do not invent information.
-      Do not claim access to tools or systems that are not actually provided.
-`,
       input: question,
       tools,
-    });
-
-    const functionCall = firstResponse.output.find(
-      (item) => item.type === 'function_call',
-    );
-
-    if (!functionCall || functionCall.type !== 'function_call') {
-      return {
-        answer: firstResponse.output_text,
-        toolCalls: [],
-      };
-    }
-
-    const args = JSON.parse(functionCall.arguments);
-
-    let toolOutput: unknown;
-    let sources: unknown[] = [];
-
-    if (functionCall.name === 'search_documents') {
-      const searchResults = await this.documentsService.search(args.query, 3);
-
-      toolOutput = searchResults.map((result) => ({
-        title: result.title,
-        fileName: result.fileName,
-        content: result.content,
-        distance: result.distance,
-      }));
-
-      sources = searchResults.map((result) => ({
-        title: result.title,
-        fileName: result.fileName,
-        distance: result.distance,
-      }));
-    }
-
-    if (functionCall.name === 'get_incident') {
-      const incident = await this.documentsService.getIncident(args.incidentId);
-
-      toolOutput = incident ?? {
-        error: `Incident ${args.incidentId} was not found.`,
-      };
-
-      if (incident) {
-        sources = [
-          {
-            title: incident.title,
-            fileName: incident.fileName,
-          },
-        ];
-      }
-    }
-
-    const finalResponse = await this.openai.responses.create({
-      model: 'gpt-5-mini',
       instructions: `
-      You are an engineering incident assistant.
+      You are an engineering incident response assistant.
       
-      Answer using only information returned by the tools.
-      Do not invent information.
-      If the requested information is not available, say so.
-      Do not claim that you can access tools or systems that are not provided.
+      Your available capabilities are limited to:
+      - search_documents: Search internal engineering documents such as
+        incident reports, runbooks, and architecture documents.
+      - get_incident: Retrieve a specific incident report by incident ID.
+      
+      Use get_incident when the user provides a specific incident ID.
+      Use search_documents when internal engineering knowledge is needed.
+      
+      For general questions that do not require internal information,
+      answer directly without using tools.
+      
+      Important rules:
+      - Answer internal engineering questions using only information returned by tools.
+      - Do not invent facts that are not present in tool results.
+      - Do not claim that you can access systems or capabilities that are not
+        provided as tools.
+      - Do not claim that you can access logs, metrics, dashboards, Grafana,
+        monitoring systems, databases, or external services.
+      - Do not offer to perform actions that the available tools cannot perform.
+      - If the available documents do not contain the requested information,
+        clearly say that the information cannot be confirmed from the available documents.
+      - For questions about internal incidents, systems, runbooks, or architecture,
+        do not supplement tool results with general engineering knowledge.
+      - Do not provide troubleshooting steps, commands, monitoring suggestions,
+        metric queries, or operational recommendations unless they are explicitly
+        present in the retrieved documents.
+      - When requested information is missing, stop after stating that it cannot
+        be confirmed from the available documents.
       `,
-      previous_response_id: firstResponse.id,
-      input: [
-        {
-          type: 'function_call_output',
-          call_id: functionCall.call_id,
-          output: JSON.stringify(toolOutput),
-        },
-      ],
-      tools,
     });
 
-    return {
-      answer: finalResponse.output_text,
-      toolCalls: [
-        {
+    const toolCalls = [];
+    const sources = [];
+
+    const maxIterations = 5;
+
+    for (let iteration = 0; iteration < maxIterations; iteration++) {
+      const functionCalls = response.output.filter(
+        (item) => item.type === 'function_call',
+      );
+
+      // 더 이상 Tool 호출이 없으면 최종 답변
+      if (functionCalls.length === 0) {
+        return {
+          answer: response.output_text,
+          toolCalls,
+          sources,
+        };
+      }
+
+      const toolOutputs = [];
+
+      for (const functionCall of functionCalls) {
+        const args = JSON.parse(functionCall.arguments) as Record<
+          string,
+          unknown
+        >;
+
+        const toolResult = await this.executeTool(functionCall.name, args);
+
+        toolCalls.push({
           name: functionCall.name,
           arguments: args,
-        },
-      ],
+        });
+
+        sources.push(...toolResult.sources);
+
+        toolOutputs.push({
+          type: 'function_call_output' as const,
+          call_id: functionCall.call_id,
+          output: JSON.stringify(toolResult.output),
+        });
+      }
+
+      response = await this.openai.responses.create({
+        model: 'gpt-5-mini',
+        previous_response_id: response.id,
+        input: toolOutputs,
+        tools,
+        instructions: `
+        Continue solving the user's request.
+        
+        Use additional tools only if they can provide information that has not
+        already been obtained.
+        
+        Answer internal engineering questions using only information returned by tools.
+        
+        Do not invent facts that are not present in tool results.
+        Do not claim access to logs, metrics, dashboards, Grafana,
+        monitoring systems, databases, or external services.
+        Do not offer to perform actions that the available tools cannot perform.
+        
+        If the available documents are insufficient,
+        clearly say that the requested information cannot be confirmed
+        from the available documents.
+        
+        Important rules:
+        - Do not supplement internal engineering answers with general knowledge.
+        - Do not provide troubleshooting steps, commands, monitoring suggestions,
+          metric queries, or recommendations unless they are explicitly present
+          in the tool results.
+        - When requested information is missing, simply state that it cannot
+          be confirmed from the available documents.
+        `,
+      });
+    }
+
+    return {
+      answer: 'Maximum agent iterations reached before completing the request.',
+      toolCalls,
       sources,
     };
+
   }
 
   private async executeTool(name: string, args: Record<string, unknown>) {
