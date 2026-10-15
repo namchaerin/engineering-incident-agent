@@ -17,6 +17,11 @@ export class AgentService {
   }
 
   async ask(question: string) {
+    const toolResultCache = new Map<
+      string,
+      Awaited<ReturnType<typeof this.executeTool>>
+    >();
+
     const tools: OpenAI.Responses.Tool[] = [
       {
         type: 'function',
@@ -121,7 +126,17 @@ export class AgentService {
           unknown
         >;
 
-        const toolResult = await this.executeTool(functionCall.name, args);
+        const cacheKey = JSON.stringify({
+          name: functionCall.name,
+          arguments: args,
+        });
+
+        let toolResult = toolResultCache.get(cacheKey);
+
+        if (!toolResult) {
+          toolResult = await this.executeTool(functionCall.name, args);
+          toolResultCache.set(cacheKey, toolResult);
+        }
 
         toolCalls.push({
           name: functionCall.name,
